@@ -1,0 +1,26 @@
+<!-- templates/browse.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Browse Images</title>
+</head>
+<body>
+    <h1>Browse Images</h1>
+    <form action="/browse" method="get">
+        <input type="text" name="query" placeholder="Search images and data...">
+        <input type="submit" value="Search">
+    </form>
+        <!-- browse.html -->
+    {% for image in images %}
+    <div>
+        <img src="{{ url_for('custom_static', filename=image['image_name']) }}" alt="Image">
+
+        <p>{{ image.filename }}</p>  <!-- Adjust according to the actual dictionary key names -->
+    </div>
+    {% endfor %}
+
+    <a href="{{ url_for('browse', page=prev_page) }}">Previous</a>
+    <a href="{{ url_for('browse', page=next_page) }}">Next</a>
+</body>
+</html>
