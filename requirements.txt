@@ -1,6 +1,4 @@
-flask
-tensorflow
-numpy
-matplotlib
-Pillow
-pdfkit
+Flask==2.2.5
+numpy==1.26.0
+tensorflow-intel==2.18.0
+dtale==2.3.0
