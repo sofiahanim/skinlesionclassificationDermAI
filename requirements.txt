@@ -1,4 +1,9 @@
-Flask==2.2.5
-numpy>=1.21.0,<=1.23.0
-tensorflow==2.13.0
-dtale==2.3.0
+pandas
+Pillow
+Jinja2
+numpy
+typing-extensions
+Werkzeug
+torch>=2.0
+torchvision>=0.15
+Flask>=2.0

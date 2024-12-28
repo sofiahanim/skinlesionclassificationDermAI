@@ -3,58 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Skin Lesion Classification</title>
-    <!-- Bootstrap CSS -->
+    <title>DermAI Skin Lesion Classification</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- DataTables CSS -->
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
-      <!-- Bootstrap CSS -->
-      <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
-      <!-- DataTables CSS -->
-      <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
-      <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
-
     <style>
         body {
             padding: 20px;
         }
-
     </style>
 </head>
 <body>
 <div class="container">
-    <h1 class="mb-4"><b>Skin Lesion Classification</b></h1>
-
-    <!-- Upload Form Section -->
+    <h1 class="mb-4"><b>Skin Lesion Classification with DermAI</b></h1>
     <div class="card mb-4">
         <div class="card-body">
             <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
                 <div class="mb-3">
-                    <label for="file" class="form-label">Upload Skin Lesion Image:</label>
-                    <input type="file" id="file" name="file" class="form-control" required>
-                </div>
-                <div class="mb-3">
                     <label for="model_type" class="form-label">Select Model Type:</label>
-                    <select id="model_type" name="model_type" class="form-select" required>
+                    <select id="model_type" name="model_type" class="form-select" required onchange="toggleMetadataFields()">
                         <option value="cnn">CNN</option>
                         <option value="efficientnet">EfficientNet</option>
                         <option value="cnn_metadata">CNN + Metadata</option>
                     </select>
                 </div>
                 <div class="mb-3">
-                    <label for="age" class="form-label">Age:</label>
-                    <input type="number" id="age" name="age" class="form-control" min="0" max="120" value=40 required>
+                    <label for="file" class="form-label">Upload Skin Lesion Image:</label>
+                    <input type="file" id="file" name="file" class="form-control" required>
                 </div>
-                <div class="mb-3">
+                <div class="mb-3 metadata-field">
+                    <label for="age" class="form-label">Age:</label>
+                    <input type="number" id="age" name="age" class="form-control" min="0" max="120" value="40" required>
+                </div>
+                <div class="mb-3 metadata-field">
                     <label for="sex" class="form-label">Sex:</label>
                     <select id="sex" name="sex" class="form-select" required>
                         <option value="male">Male</option>
                         <option value="female">Female</option>
                     </select>
                 </div>
-                <div class="mb-3">
+                <div class="mb-3 metadata-field">
                     <label for="anatom_site" class="form-label">Anatomical Site:</label>
                     <select id="anatom_site" name="anatom_site" class="form-select" required>
                         <option value="torso">Torso</option>
@@ -64,17 +53,18 @@
                         <option value="palms/soles">Palms/Soles</option>
                         <option value="oral/genital">Oral/Genital</option>
                     </select>
-                </div>
+                </div>                
                 <button type="submit" class="btn btn-dark">Predict</button>
             </form>
         </div>
     </div>
-
-    <!-- Prediction Output Section -->
+    <div id="loadingSpinner" class="text-center d-none">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+    </div>
     <div id="prediction-result" class="alert alert-info d-none"></div>
-
     <hr>
-    <!-- Data Table Section -->
     <h4 class="mb-4">Sample Test Data</h4>
     <table id="data-table" class="table table-hover">
         <thead>
@@ -91,111 +81,115 @@
         </thead>
     </table>
 </div>
-</div>
-
-<link href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet"/>
- 
-<!-- Bootstrap and DataTables Scripts -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
 <script>
-    $(document).ready(function () {
-        // Initialize DataTable
-        const table = $('#data-table').DataTable({
-            serverSide: true,
-            processing: true,
-            ajax: {
-                url: '/browse',
-                type: 'GET'
-            },
-            columns: [
-                { data: 'patient_id', title: 'Patient ID' },
-                { data: 'sex', title: 'Sex' },
-                { data: 'age_approx', title: 'Age Approx' },
-                { data: 'anatom_site_general_challenge', title: 'Anatomical Site' },
-                { data: 'width', title: 'Width' },
-                { data: 'height', title: 'Height' },
-                { data: 'image_name', title: 'Image Name' },
-                {
-                    data: 'image_view',
-                    title: 'View',
-                    orderable: false,
-                    searchable: false
-                }
-            ],
-            pageLength: 10,
-            lengthMenu: [10, 25, 50,75,100],
-            paging: true,
-            responsive: true,
-            dom: '<"top"lf>rt<"bottom"ip><"clear">', // Layout customization
+function toggleMetadataFields() {
+    var modelType = document.getElementById('model_type').value;
+    var metadataFields = document.querySelectorAll('.metadata-field');
+
+    if (modelType === 'cnn_metadata') {
+        metadataFields.forEach(field => {
+            field.style.display = 'block'; // Show metadata fields for CNN + Metadata
         });
-
-        // Handle form submission
-        $('#upload-form').on('submit', function (event) {
-            event.preventDefault();
-            const formData = new FormData(this);
-
-            $.ajax({
-                url: '/upload',
-                method: 'POST',
-                data: formData,
-                processData: false,
-                contentType: false,
-                success: function (response) {
-                    if (response.error) {
-                        $('#prediction-result')
-                            .removeClass('d-none alert-success alert-danger')
-                            .addClass('alert alert-danger')
-                            .text(response.error);
-                    } else {
-                        const { predicted_class, confidence, alert_class } = response;
-                        $('#prediction-result')
-                            .removeClass('d-none alert-success alert-danger')
-                            .addClass(`alert ${alert_class}`)
-                            .html(
-                                `<strong>Prediction:</strong> ${predicted_class}<br>
-                                <strong>Confidence:</strong> ${confidence.toFixed(2)}`
-                            );
-                    }
-                },
-                error: function () {
-                    $('#prediction-result')
-                        .removeClass('d-none alert-success alert-danger')
-                        .addClass('alert alert-danger')
-                        .text('An error occurred during prediction.');
-                }
-            });
-        });
-    });
-
-    function viewImage(imageName) {
-        const imageUrl = `/data/test/${imageName}.jpg`;
-        const modalHtml = `
-            <div class="modal" tabindex="-1" id="imageModal">
-                <div class="modal-dialog modal-lg">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">${imageName}</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        
-                        </div>
-                        <div class="modal-body text-center">                            
-                            <img src="${imageUrl}" class="img-fluid" alt="${imageName}">
-                        </div>
-                        <div class="modal-footer">
-                            <a href="${imageUrl}" class="btn btn-dark btn-sm" download>
-                                <i class="fa fa-download"></i> Download
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>`;
-        $('body').append(modalHtml);
-        $('#imageModal').modal('show').on('hidden.bs.modal', function () {
-            $(this).remove();
+    } else {
+        metadataFields.forEach(field => {
+            field.style.display = 'none'; // Hide metadata fields for other models
         });
     }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    toggleMetadataFields();  // Initialize on page load based on the default selected model type
+
+    document.getElementById('model_type').addEventListener('change', function() {
+        toggleMetadataFields();  // Adjust form fields whenever the model type changes
+    });
+});
+
+function viewImage(imageName) {
+    const imageUrl = `/data/test/${imageName}.jpg`;
+    const modalHtml = `
+        <div class="modal" tabindex="-1" id="imageModal">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">${imageName}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body text-center">
+                        <img src="${imageUrl}" class="img-fluid" alt="${imageName}">
+                    </div>
+                    <div class="modal-footer">
+                        <a href="${imageUrl}" class="btn btn-dark btn-sm" download>
+                            <i class="fa fa-download"></i> Download
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+    $('body').append(modalHtml);
+    $('#imageModal').modal('show').on('hidden.bs.modal', function () {
+        $(this).remove();
+    });
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    toggleMetadataFields();  // 
+
+    const dataTable = $('#data-table').DataTable({
+        serverSide: true,
+        processing: true,
+        ajax: '/browse',
+        columns: [
+            { data: 'patient_id', title: 'Patient ID', orderable: true, searchable: true },
+            { data: 'sex', title: 'Sex',  orderable: true, searchable: true },
+            { data: 'age_approx', title: 'Age Approx',  orderable: true, searchable: true },
+            { data: 'anatom_site_general_challenge', title: 'Anatomical Site',  orderable: true, searchable: true },
+            { data: 'width', title: 'Width',  orderable: true, searchable: true },
+            { data: 'height', title: 'Height',  orderable: true, searchable: true },
+            { data: 'image_name', title: 'Image Name',  orderable: true, searchable: true },
+            { data: 'image_view', title: 'View', orderable: false, searchable: false }
+        ]
+    });
+
+    $('#data-table tbody').on('click', 'button', function() {
+        var imageName = $(this).data('image-name');
+        viewImage(imageName);
+    });
+
+    $('#upload-form').on('submit', function(event) {
+        event.preventDefault();
+        const formData = new FormData(this);
+        $.ajax({
+            url: '/upload',
+            type: 'POST',
+            data: formData,
+            processData: false,
+            contentType: false,
+            beforeSend: function() {
+                $('#loadingSpinner').removeClass('d-none');  // Show spinner before sending
+            },
+            success: function(response) {
+                $('#loadingSpinner').addClass('d-none');  // Hide the spinner on success
+                if(response.error) {
+                    $('#prediction-result').removeClass('d-none').addClass('alert-danger').text(response.error);
+                } else {
+                    var alertClass = response.predicted_class === "Malignant" ? 'alert-danger' : 'alert-success';
+                    $('#prediction-result')
+                        .removeClass('d-none alert-success alert-danger')
+                        .addClass(alertClass)
+                        .html(`<strong>Prediction:</strong> ${response.predicted_class}<br><strong>Confidence:</strong> ${response.confidence.toFixed(2)}`);
+                }
+            },
+            error: function() {
+                $('#loadingSpinner').addClass('d-none');  // Ensure spinner is hidden on error
+                $('#prediction-result').removeClass('d-none').addClass('alert-danger').text('Failed to process the image.');
+            }
+        });
+    });
+});
 </script>
 </body>
 </html>

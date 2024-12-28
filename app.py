@@ -14,13 +14,14 @@ app = Flask(__name__)
 DATA_FOLDER = 'data'
 IMAGE_FOLDER = os.path.join(DATA_FOLDER, 'test')
 CSV_PATH = os.path.join(DATA_FOLDER, 'test.csv')
-app.config['IMAGE_FOLDER'] = IMAGE_FOLDER
 UPLOAD_FOLDER = os.path.join(DATA_FOLDER, 'uploads')
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['IMAGE_FOLDER'] = IMAGE_FOLDER
 
 # Load data
-data = pd.read_csv(CSV_PATH).fillna('N/A')  # Replace NaN with 'N/A'
+data = pd.read_csv(CSV_PATH).fillna('N/A')  # Handle NaN values
 
 # Model paths
 MODEL_PATHS = {
@@ -31,7 +32,8 @@ MODEL_PATHS = {
 
 # Load models
 device = torch.device("cpu")
-models = {key: torch.jit.load(path, map_location=device).eval() for key, path in MODEL_PATHS.items()}
+models = {model_name: torch.jit.load(model_path, map_location=device).eval()
+          for model_name, model_path in MODEL_PATHS.items()}
 
 # Image preprocessing
 IMAGE_SIZE = 224
@@ -43,122 +45,99 @@ transform = transforms.Compose([
 
 # Metadata processing
 def process_metadata(age, sex, anatom_site):
-    sex_categories = ['male', 'female']
-    anatom_categories = ['torso', 'lower extremity', 'upper extremity', 'head/neck', 'palms/soles', 'oral/genital']
-
-    def _one_hot_encode(value, categories):
-        encoding = [0.0] * len(categories)
-        if value in categories:
-            encoding[categories.index(value)] = 1.0
-        return encoding
-
-    metadata_values = _one_hot_encode(sex, sex_categories)
-    metadata_values += _one_hot_encode(anatom_site, anatom_categories)
-    metadata_values.append(float(age))
-
-    return torch.tensor(metadata_values, dtype=torch.float32).unsqueeze(0)
+    categories = {
+        'sex': ['male', 'female'],
+        'anatom_site': ['torso', 'lower extremity', 'upper extremity', 'head/neck', 'palms/soles', 'oral/genital']
+    }
+    metadata = [0] * (len(categories['sex']) + len(categories['anatom_site']))
+    if sex in categories['sex']:
+        metadata[categories['sex'].index(sex)] = 1
+    if anatom_site in categories['anatom_site']:
+        metadata[len(categories['sex']) + categories['anatom_site'].index(anatom_site)] = 1
+    metadata.append(float(age))
+    return torch.tensor([metadata], dtype=torch.float32)
 
 @app.route('/')
 def index():
-    return render_template('index.html', columns=data.columns)
+    return render_template('index.html', columns=data.columns.tolist())
 
 @app.route('/upload', methods=['POST'])
 def upload():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    file = request.files['file']
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-
+    file = request.files.get('file')
+    if not file or file.filename == '':
+        return jsonify({'error': 'No file uploaded'}), 400
     filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
     file.save(filepath)
-
-    model_type = request.form.get('model_type', 'cnn')
-
-    # Safely parse the age input
-    age_input = request.form.get('age', '')
-    try:
-        age = int(age_input) if age_input else 40  # Default to 40 if empty
-    except ValueError:
-        return jsonify({'error': 'Invalid age value. Please enter a valid number.'}), 400
-
+    age = request.form.get('age', 40, type=int)
     sex = request.form.get('sex', 'male')
     anatom_site = request.form.get('anatom_site', 'torso')
-
-    try:
-        image = Image.open(filepath).convert('RGB')
-        input_image = transform(image).unsqueeze(0)
-
-        model = models.get(model_type, models['cnn'])
-        input_image = input_image.to(device)
-
+    image = Image.open(filepath).convert('RGB')
+    input_image = transform(image).unsqueeze(0).to(device)
+    model_type = request.form.get('model_type', 'cnn')
+    model = models.get(model_type, models['cnn'])
+    metadata = process_metadata(age, sex, anatom_site).to(device)
+    
+    with torch.no_grad():
         if model_type == 'cnn_metadata':
-            metadata = process_metadata(age, sex, anatom_site).to(device)
-            with torch.no_grad():
-                output = model(input_image, metadata)
+            output = model(input_image, metadata)
         else:
-            with torch.no_grad():
-                output = model(input_image)
+            output = model(input_image)
+    probabilities = torch.softmax(output, dim=1).cpu().numpy()[0]
+    predicted_class_index = np.argmax(probabilities)
+    predicted_class = ["Benign", "Malignant"][predicted_class_index]
+    confidence = float(probabilities[predicted_class_index])
 
-        probabilities = torch.softmax(output, dim=1).cpu().numpy()[0]
-        predicted_class = np.argmax(probabilities)
-        confidence = probabilities[predicted_class]
-        class_names = ["Benign", "Malignant"]
-        predicted_label = class_names[predicted_class]
+    return jsonify({
+        'predicted_class': predicted_class,
+        'confidence': confidence
+    })
 
-        # Set alert class based on prediction
-        alert_class = "alert-success" if predicted_label == "Benign" else "alert-danger"
-
-        result = {
-            "predicted_class": predicted_label,
-            "confidence": float(confidence),
-            "alert_class": alert_class,
-            "probabilities": {class_names[i]: float(prob) for i, prob in enumerate(probabilities)}
-        }
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
 
 @app.route('/browse', methods=['GET'])
 def browse():
-    # Get query parameters for pagination and search
     query = request.args.get('search[value]', '').lower()
-    draw = int(request.args.get('draw', 1))
     start = int(request.args.get('start', 0))
     length = int(request.args.get('length', 10))
+    column_index = int(request.args.get('order[0][column]', 0))  # Default to the first column
+    sort_direction = request.args.get('order[0][dir]', 'asc')  # Default sorting direction
 
-    # Filter data if search query is provided
-    filtered_data = data
-    if query:
-        filtered_data = data[data.apply(lambda row: query in str(row).lower(), axis=1)]
+    column_names = ['patient_id', 'sex', 'age_approx', 'anatom_site_general_challenge', 'width', 'height', 'image_name']
+    sort_column = column_names[column_index]  # Ensure this matches the order in your DataTables initialization
 
-    # Total records
-    total_records = len(data)
-    total_filtered = len(filtered_data)
+    filtered_data = data[data.apply(lambda row: query in str(row).lower(), axis=1)]
 
-    # Paginate the filtered data
+    # Sort the data
+    if sort_direction == 'asc':
+        filtered_data = filtered_data.sort_values(by=sort_column, ascending=True)
+    else:
+        filtered_data = filtered_data.sort_values(by=sort_column, ascending=False)
+
     paginated_data = filtered_data.iloc[start:start + length]
+
+    response_data = [{
+        **row.to_dict(),
+        "image_view": f'<button class="btn" data-image-name="{row["image_name"]}"><i class="fa fa-eye"></i></button>'
+    } for index, row in paginated_data.iterrows()]
+
     response = {
-        "draw": draw,
-        "recordsTotal": total_records,
-        "recordsFiltered": total_filtered,
-        "data": [
-            {
-                **row.to_dict(),
-                "image_view": f'<button class="btn" onclick="viewImage(\'{row["image_name"]}\')"><i class="fa fa-eye"></i></button>'
-            }
-            for _, row in paginated_data.iterrows()
-        ]
+        "draw": int(request.args.get('draw', 1)),
+        "recordsTotal": len(data),
+        "recordsFiltered": len(filtered_data),
+        "data": response_data
     }
     return jsonify(response)
 
-
 @app.route('/data/test/<filename>')
 def serve_image(filename):
-    image_path = os.path.join(app.config['IMAGE_FOLDER'], filename)
-    if not os.path.exists(image_path):
+    #filename = filename + '.jpg'  # Append the extension to the filename
+    secure_path = os.path.join(app.config['IMAGE_FOLDER'], secure_filename(filename))
+    print("Trying to serve:", secure_path)  # This will output the path it's trying to access
+    if not os.path.exists(secure_path):
         return jsonify({'error': 'Image not found'}), 404
     return send_from_directory(app.config['IMAGE_FOLDER'], filename)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg'}
 
 if __name__ == '__main__':
     app.run(debug=True)
