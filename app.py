@@ -44,17 +44,24 @@ transform = transforms.Compose([
 
 # Metadata processing
 def process_metadata(age, sex, anatom_site):
-    categories = {
-        'sex': ['male', 'female'],
-        'anatom_site': ['torso', 'lower extremity', 'upper extremity', 'head/neck', 'palms/soles', 'oral/genital']
-    }
-    metadata = [0] * (len(categories['sex']) + len(categories['anatom_site']))
-    if sex in categories['sex']:
-        metadata[categories['sex'].index(sex)] = 1
-    if anatom_site in categories['anatom_site']:
-        metadata[len(categories['sex']) + categories['anatom_site'].index(anatom_site)] = 1
-    metadata.append(float(age))
-    return torch.tensor([metadata], dtype=torch.float32)
+    sex_categories = ['male', 'female']
+    anatom_categories = ['torso', 'lower extremity', 'upper extremity', 'head/neck', 'palms/soles', 'oral/genital']
+
+    def _one_hot_encode(value, categories):
+        encoding = [0.0] * len(categories)
+        if value in categories:
+            encoding[categories.index(value)] = 1.0
+        return encoding
+
+    metadata_values = []
+    metadata_values.extend(_one_hot_encode(sex, sex_categories))
+    metadata_values.extend(_one_hot_encode(anatom_site, anatom_categories))
+    metadata_values.append(float(age))
+
+    metadata = np.array(metadata_values, dtype=np.float32)
+    metadata = torch.tensor(metadata, dtype=torch.float32)
+    return metadata.unsqueeze(0).to(device)
+
 
 @app.route('/')
 def index():
@@ -64,47 +71,41 @@ def allowed_file(filename):
     """ Check if the file has an allowed extension """
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg'}
 
-@app.route('/upload', methods=['POST'])
-def upload():
+def predict():
     file = request.files.get('file')
-    if not file or file.filename == '':
-        return jsonify({'error': 'No file uploaded'}), 400
-    
-    # Check if the file type is allowed
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'File type not allowed'}), 400
-
-    try:
-        # Read image file as a Pillow Image object
+    if file and '.' in file.filename and file.filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg'}:
         image = Image.open(BytesIO(file.read())).convert('RGB')
-    except IOError:
-        return jsonify({'error': 'Invalid image file'}), 400
+        input_image = transform(image).unsqueeze(0).to(device)
 
+        model_type = request.form.get('model_type', 'cnn')
+        model = models[model_type]
 
-    input_image = transform(image).unsqueeze(0).to(device)
-
-    age = request.form.get('age', 40, type=int)
-    sex = request.form.get('sex', 'male')
-    anatom_site = request.form.get('anatom_site', 'torso')
-    
-    model_type = request.form.get('model_type', 'cnn')
-    model = models.get(model_type, models['cnn'])
-    metadata = process_metadata(age, sex, anatom_site).to(device)
-    
-    with torch.no_grad():
+        # Prepare data for prediction
         if model_type == 'cnn_metadata':
-            output = model(input_image, metadata)
-        else:
-            output = model(input_image)
-    probabilities = torch.softmax(output, dim=1).cpu().numpy()[0]
-    predicted_class_index = np.argmax(probabilities)
-    predicted_class = ["Benign", "Malignant"][predicted_class_index]
-    confidence = float(probabilities[predicted_class_index])
+            age = request.form.get('age', 40, type=int)
+            sex = request.form.get('sex', 'male')
+            anatom_site = request.form.get('anatom_site', 'torso')
+            metadata = process_metadata(age, sex, anatom_site)
 
-    return jsonify({
-        'predicted_class': predicted_class,
-        'confidence': confidence
-    })
+            # Make predictions using both image and metadata
+            with torch.no_grad():
+                output = model(input_image, metadata)
+        else:
+            # Make predictions using only the image
+            with torch.no_grad():
+                output = model(input_image)
+
+        probabilities = torch.softmax(output, dim=1).cpu().numpy()[0]
+        predicted_class_index = np.argmax(probabilities)
+        predicted_class = ["Benign", "Malignant"][predicted_class_index]
+        confidence = probabilities[predicted_class_index]
+
+        return jsonify({
+            'predicted_class': predicted_class,
+            'confidence': confidence
+        })
+    else:
+        return jsonify({'error': 'Invalid or no file uploaded'}), 400
 
 
 @app.route('/browse', methods=['GET'])
