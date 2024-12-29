@@ -44,7 +44,7 @@ transform = transforms.Compose([
 
 # Explicit One-Hot Encoding
 def process_metadata(age, sex, anatom_site):
-    # Define the categories for sex and anatomical site
+
     sex_categories = ['male', 'female']
     anatom_categories = ['torso', 'lower extremity', 'upper extremity', 'head/neck', 'palms/soles', 'oral/genital']
     
@@ -62,11 +62,8 @@ def process_metadata(age, sex, anatom_site):
         metadata[len(sex_categories) + anatom_categories.index(anatom_site)] = 1
     else:
         raise ValueError(f"Invalid 'anatom_site' provided: {anatom_site}. Expected one of {anatom_categories}")
-    
-    # Append age as a float
+
     metadata.append(float(age))
-    
-    # Convert list to a PyTorch tensor with an additional dimension for batch size
     return torch.tensor([metadata], dtype=torch.float32)
 
 
@@ -93,7 +90,6 @@ def upload():
         if model is None:
             raise ValueError(f"Model type '{model_type}' is not recognized.")
 
-        # Process the prediction differently based on model type
         if model_type == 'cnn_metadata':
             age = request.form.get('age', 40, type=int)
             sex = request.form.get('sex', 'male')
@@ -109,14 +105,13 @@ def upload():
         probabilities = torch.softmax(output, dim=1).cpu().numpy()[0]
         predicted_class_index = np.argmax(probabilities)
         predicted_class = ["Benign", "Malignant"][predicted_class_index]
-        confidence = probabilities[predicted_class_index]
+        confidence = float(probabilities[predicted_class_index])  # Convert to Python float
 
         return jsonify({
             'predicted_class': predicted_class,
-            'confidence': confidence
+            'confidence': confidence  
         })
     except Exception as e:
-        # Logging the exception can be helpful for debugging
         app.logger.error(f"An error occurred: {e}")
         return jsonify({'error': 'An error occurred during processing', 'details': str(e)}), 500
 
