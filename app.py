@@ -6,6 +6,7 @@ import torch
 from torchvision import transforms
 import numpy as np
 from werkzeug.utils import secure_filename
+from io import BytesIO
 
 # Initialize Flask application
 app = Flask(__name__)
@@ -14,10 +15,7 @@ app = Flask(__name__)
 DATA_FOLDER = 'data'
 IMAGE_FOLDER = os.path.join(DATA_FOLDER, 'test')
 CSV_PATH = os.path.join(DATA_FOLDER, 'test.csv')
-UPLOAD_FOLDER = os.path.join(DATA_FOLDER, 'uploads')
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['IMAGE_FOLDER'] = IMAGE_FOLDER
 
 # Load data
@@ -31,9 +29,10 @@ MODEL_PATHS = {
 }
 
 # Load models
-device = torch.device("cpu")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 models = {model_name: torch.jit.load(model_path, map_location=device).eval()
           for model_name, model_path in MODEL_PATHS.items()}
+
 
 # Image preprocessing
 IMAGE_SIZE = 224
@@ -61,18 +60,33 @@ def process_metadata(age, sex, anatom_site):
 def index():
     return render_template('index.html', columns=data.columns.tolist())
 
+def allowed_file(filename):
+    """ Check if the file has an allowed extension """
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg'}
+
 @app.route('/upload', methods=['POST'])
 def upload():
     file = request.files.get('file')
     if not file or file.filename == '':
         return jsonify({'error': 'No file uploaded'}), 400
-    filepath = os.path.join(app.config['UPLOAD_FOLDER'], secure_filename(file.filename))
-    file.save(filepath)
+    
+    # Check if the file type is allowed
+    if not allowed_file(file.filename):
+        return jsonify({'error': 'File type not allowed'}), 400
+
+    try:
+        # Read image file as a Pillow Image object
+        image = Image.open(BytesIO(file.read())).convert('RGB')
+    except IOError:
+        return jsonify({'error': 'Invalid image file'}), 400
+
+
+    input_image = transform(image).unsqueeze(0).to(device)
+
     age = request.form.get('age', 40, type=int)
     sex = request.form.get('sex', 'male')
     anatom_site = request.form.get('anatom_site', 'torso')
-    image = Image.open(filepath).convert('RGB')
-    input_image = transform(image).unsqueeze(0).to(device)
+    
     model_type = request.form.get('model_type', 'cnn')
     model = models.get(model_type, models['cnn'])
     metadata = process_metadata(age, sex, anatom_site).to(device)

@@ -25,12 +25,12 @@
                     <select id="model_type" name="model_type" class="form-select" required onchange="toggleMetadataFields()">
                         <option value="cnn">CNN</option>
                         <option value="efficientnet">EfficientNet</option>
-                        <option value="cnn_metadata">CNN + Metadata</option>
+                        <option value="cnn_metadata" selected>CNN + Metadata</option>
                     </select>
                 </div>
                 <div class="mb-3">
-                    <label for="file" class="form-label">Upload Skin Lesion Image:</label>
-                    <input type="file" id="file" name="file" class="form-control" required>
+                    <label for="file" class="form-label">Upload Skin Lesion Image (PNG/JPEG/JPG ):</label>
+                    <input type="file" id="file" name="file" class="form-control" accept="image/png, image/jpeg" required>                    
                 </div>
                 <div class="mb-3 metadata-field">
                     <label for="age" class="form-label">Age:</label>
