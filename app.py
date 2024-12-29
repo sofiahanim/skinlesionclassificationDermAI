@@ -42,56 +42,67 @@ transform = transforms.Compose([
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
-# Metadata processing
+# Explicit One-Hot Encoding
 def process_metadata(age, sex, anatom_site):
+    # Define the categories for sex and anatomical site
     sex_categories = ['male', 'female']
     anatom_categories = ['torso', 'lower extremity', 'upper extremity', 'head/neck', 'palms/soles', 'oral/genital']
-
-    def _one_hot_encode(value, categories):
-        encoding = [0.0] * len(categories)
-        if value in categories:
-            encoding[categories.index(value)] = 1.0
-        return encoding
-
-    metadata_values = []
-    metadata_values.extend(_one_hot_encode(sex, sex_categories))
-    metadata_values.extend(_one_hot_encode(anatom_site, anatom_categories))
-    metadata_values.append(float(age))
-
-    metadata = np.array(metadata_values, dtype=np.float32)
-    metadata = torch.tensor(metadata, dtype=torch.float32)
-    return metadata.unsqueeze(0).to(device)
+    
+    # Initialize the metadata list with zeros for each category
+    metadata = [0] * (len(sex_categories) + len(anatom_categories))
+    
+    # Check and encode 'sex'
+    if sex in sex_categories:
+        metadata[sex_categories.index(sex)] = 1
+    else:
+        raise ValueError(f"Invalid 'sex' provided: {sex}. Expected one of {sex_categories}")
+    
+    # Check and encode 'anatom_site'
+    if anatom_site in anatom_categories:
+        metadata[len(sex_categories) + anatom_categories.index(anatom_site)] = 1
+    else:
+        raise ValueError(f"Invalid 'anatom_site' provided: {anatom_site}. Expected one of {anatom_categories}")
+    
+    # Append age as a float
+    metadata.append(float(age))
+    
+    # Convert list to a PyTorch tensor with an additional dimension for batch size
+    return torch.tensor([metadata], dtype=torch.float32)
 
 
 @app.route('/')
 def index():
     return render_template('index.html', columns=data.columns.tolist())
 
+# Check if the file extension is allowed
 def allowed_file(filename):
-    """ Check if the file has an allowed extension """
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg'}
 
-def predict():
+@app.route('/upload', methods=['POST'])
+def upload():
     file = request.files.get('file')
-    if file and '.' in file.filename and file.filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg'}:
+    if not file or not allowed_file(file.filename):
+        return jsonify({'error': 'Invalid or no file uploaded'}), 400
+
+    try:
         image = Image.open(BytesIO(file.read())).convert('RGB')
         input_image = transform(image).unsqueeze(0).to(device)
-
         model_type = request.form.get('model_type', 'cnn')
-        model = models[model_type]
+        model = models.get(model_type, None)
 
-        # Prepare data for prediction
+        if model is None:
+            raise ValueError(f"Model type '{model_type}' is not recognized.")
+
+        # Process the prediction differently based on model type
         if model_type == 'cnn_metadata':
             age = request.form.get('age', 40, type=int)
             sex = request.form.get('sex', 'male')
             anatom_site = request.form.get('anatom_site', 'torso')
             metadata = process_metadata(age, sex, anatom_site)
 
-            # Make predictions using both image and metadata
             with torch.no_grad():
                 output = model(input_image, metadata)
         else:
-            # Make predictions using only the image
             with torch.no_grad():
                 output = model(input_image)
 
@@ -104,9 +115,10 @@ def predict():
             'predicted_class': predicted_class,
             'confidence': confidence
         })
-    else:
-        return jsonify({'error': 'Invalid or no file uploaded'}), 400
-
+    except Exception as e:
+        # Logging the exception can be helpful for debugging
+        app.logger.error(f"An error occurred: {e}")
+        return jsonify({'error': 'An error occurred during processing', 'details': str(e)}), 500
 
 @app.route('/browse', methods=['GET'])
 def browse():
@@ -150,9 +162,6 @@ def serve_image(filename):
     if not os.path.exists(secure_path):
         return jsonify({'error': 'Image not found'}), 404
     return send_from_directory(app.config['IMAGE_FOLDER'], filename)
-
-def allowed_file(filename):
-    return '.' in filename and filename.rsplit('.', 1)[1].lower() in {'png', 'jpg', 'jpeg'}
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
