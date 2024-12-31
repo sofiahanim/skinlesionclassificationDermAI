@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
     <style>
         body {
             padding: 20px;
@@ -177,9 +178,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     var alertClass = response.predicted_class === "Malignant" ? 'alert-danger' : 'alert-success';
                     $('#prediction-result')
-                        .removeClass('d-none alert-success alert-danger')
-                        .addClass(alertClass)
-                        .html(`<strong>Prediction:</strong> ${response.predicted_class}<br><strong>Confidence:</strong> ${response.confidence.toFixed(2)}`);
+                    .removeClass('d-none alert-success alert-danger')
+                    .addClass(alertClass)
+                    .html(`<h5><b>Result Prediction:</b></h5>
+                        <b><i class="fa fa-${response.predicted_class === 'Benign' ? 'check-circle' : 'times-circle'}" aria-hidden="true"></i> ${response.predicted_class}</b> with <b>${response.confidence.toFixed(2)*100}%</b> confidence<hr>
+                        <i class="fa fa-check-circle" aria-hidden="true"></i> Probability<b> Benign:</b> ${response.probabilities_benign.toFixed(2)}<br>
+                        <i class="fa fa-times-circle" aria-hidden="true"></i> Probability<b> Malignant:</b> ${response.probabilities_malignant.toFixed(2)}`);
+
                 }
             },
             error: function() {

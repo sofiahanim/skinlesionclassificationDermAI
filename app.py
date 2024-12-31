@@ -118,7 +118,7 @@ def upload():
             'predicted_class': predicted_class,
             'confidence': confidence,
             'probabilities': probabilities_list,  # Added probabilities
-             'probabilities_benign': probabilities_list[0],
+            'probabilities_benign': probabilities_list[0],
             'probabilities_malignant': probabilities_list[1]
 
         })
