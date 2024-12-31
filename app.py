@@ -23,48 +23,54 @@ data = pd.read_csv(CSV_PATH).fillna('N/A')  # Handle NaN values
 
 # Model paths
 MODEL_PATHS = {
-    "cnn": "models/best_cnn_model_traced.pt",
-    "efficientnet": "models/best_efficientnet_model_traced.pt",
-    "cnn_metadata": "models/best_cnn_metadata_model_traced.pt"
+    "cnn": os.path.join("models", "best_cnn_model_traced.pt"),
+    "cnn_metadata": os.path.join("models", "best_cnn_metadata_model_traced.pt")
 }
 
-# Load models
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-models = {model_name: torch.jit.load(model_path, map_location=device).eval()
-          for model_name, model_path in MODEL_PATHS.items()}
-
-
 # Image preprocessing
-IMAGE_SIZE = 224
+IMAGE_SIZE = 128
 transform = transforms.Compose([
     transforms.Resize((IMAGE_SIZE, IMAGE_SIZE)),
     transforms.ToTensor(),
     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
+# Load models
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+models = {}  # Initialize an empty dictionary for models
+
+def load_traced_model(model_path, device):
+    model = torch.jit.load(model_path, map_location=device)
+    model.to(device)
+    model.eval()
+    return model
+
+# Function to load models
+def load_all_models():
+    global models
+    for model_name, model_path in MODEL_PATHS.items():
+        models[model_name] = load_traced_model(model_path, device)
+    print("Models loaded successfully!")
+
+
 # Explicit One-Hot Encoding
 def process_metadata(age, sex, anatom_site):
-
     sex_categories = ['male', 'female']
     anatom_categories = ['torso', 'lower extremity', 'upper extremity', 'head/neck', 'palms/soles', 'oral/genital']
-    
-    # Initialize the metadata list with zeros for each category
-    metadata = [0] * (len(sex_categories) + len(anatom_categories))
-    
-    # Check and encode 'sex'
-    if sex in sex_categories:
-        metadata[sex_categories.index(sex)] = 1
-    else:
-        raise ValueError(f"Invalid 'sex' provided: {sex}. Expected one of {sex_categories}")
-    
-    # Check and encode 'anatom_site'
-    if anatom_site in anatom_categories:
-        metadata[len(sex_categories) + anatom_categories.index(anatom_site)] = 1
-    else:
-        raise ValueError(f"Invalid 'anatom_site' provided: {anatom_site}. Expected one of {anatom_categories}")
 
-    metadata.append(float(age))
-    return torch.tensor([metadata], dtype=torch.float32)
+    def _one_hot_encode(value, categories):
+      encoding = np.zeros(len(categories), dtype=np.float32)
+      if value in categories:
+          encoding[categories.index(value)] = 1.0
+      return encoding
+
+    metadata_values = np.concatenate([
+        _one_hot_encode(sex, sex_categories),
+        _one_hot_encode(anatom_site, anatom_categories),
+        np.array([float(age)], dtype=np.float32)
+    ])
+    metadata = torch.tensor(metadata_values, dtype=torch.float32)  # Return tensor
+    return metadata
 
 
 @app.route('/')
@@ -85,7 +91,7 @@ def upload():
         image = Image.open(BytesIO(file.read())).convert('RGB')
         input_image = transform(image).unsqueeze(0).to(device)
         model_type = request.form.get('model_type', 'cnn')
-        model = models.get(model_type, None)
+        model = models.get(model_type)
 
         if model is None:
             raise ValueError(f"Model type '{model_type}' is not recognized.")
@@ -94,22 +100,27 @@ def upload():
             age = request.form.get('age', 40, type=int)
             sex = request.form.get('sex', 'male')
             anatom_site = request.form.get('anatom_site', 'torso')
-            metadata = process_metadata(age, sex, anatom_site)
+            metadata = process_metadata(age, sex, anatom_site).unsqueeze(0).to(device)  # Move metadata to device
 
             with torch.no_grad():
-                output = model(input_image, metadata)
+                output = model(input_image, metadata)  # Pass both image and metadata
         else:
-            with torch.no_grad():
-                output = model(input_image)
+             with torch.no_grad():
+                output = model(input_image) # Only pass the image for non-metadata models
 
         probabilities = torch.softmax(output, dim=1).cpu().numpy()[0]
         predicted_class_index = np.argmax(probabilities)
         predicted_class = ["Benign", "Malignant"][predicted_class_index]
         confidence = float(probabilities[predicted_class_index])  # Convert to Python float
+        probabilities_list = probabilities.tolist()
 
         return jsonify({
             'predicted_class': predicted_class,
-            'confidence': confidence  
+            'confidence': confidence,
+            'probabilities': probabilities_list,  # Added probabilities
+             'probabilities_benign': probabilities_list[0],
+            'probabilities_malignant': probabilities_list[1]
+
         })
     except Exception as e:
         app.logger.error(f"An error occurred: {e}")
@@ -159,5 +170,7 @@ def serve_image(filename):
     return send_from_directory(app.config['IMAGE_FOLDER'], filename)
 
 if __name__ == '__main__':
+    # Load models before running the app
+    load_all_models()
     port = int(os.environ.get('PORT', 5000))
     app.run(debug=True, host='0.0.0.0', port=port)
