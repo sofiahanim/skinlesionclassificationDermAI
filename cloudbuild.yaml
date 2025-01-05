@@ -1,0 +1,10 @@
+steps:
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '-t', 'gcr.io/$PROJECT_ID/dermai:$COMMIT_SHA', '.']
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['push', 'gcr.io/$PROJECT_ID/dermai:$COMMIT_SHA']
+- name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  entrypoint: 'gcloud'
+  args: ['run', 'deploy', 'dermai', '--image', 'gcr.io/$PROJECT_ID/dermai:$COMMIT_SHA', '--platform', 'managed', '--region', 'us-central1', '--allow-unauthenticated']
+images:
+- 'gcr.io/$PROJECT_ID/dermai:$COMMIT_SHA'
