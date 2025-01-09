@@ -3,9 +3,9 @@
 # DermAI Skin Lesion Classification
 
 ## Project Overview
-DermAI is a Flask-based application designed to classify skin lesions using ML models that supports two model options which are
-**CNN**: which classifies images using CNN
-**CNN + Metadata**: is enhanced classification with metadata like age, sex and anatomical site
+DermAI is a Flask-based application designed to classify skin lesions using ML models that supports two model options which are:
+- **CNN** : which classifies images using CNN
+- **CNN + Metadata** : is enhanced classification with metadata like age, sex and anatomical site
 
 ---
 
@@ -126,6 +126,8 @@ steps:
 - Update the `project-id` and `region` placeholders in `cloudbuild.yaml` with actual values.
 - The application will be accessible at the URL provided by Google Cloud Run (`https://skin-lesion-classification-[id].run.app`).
 
-
-
 ---
+
+
+
+
