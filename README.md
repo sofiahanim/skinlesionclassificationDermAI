@@ -1,11 +1,7 @@
----
-
 # DermAI Skin Lesion Classification
 
 ## Project Overview
-DermAI is a Flask-based application designed to classify skin lesions using ML models that supports two model options which are:
-- **CNN** : which classifies images using CNN
-- **CNN + Metadata** : is enhanced classification with metadata like age, sex and anatomical site
+DermAI is a Flask-based application designed to classify skin lesions using ML models that supports two model options which are CNN (image-only) and CNN + Metadata (image with metadata)
 
 ---
 
@@ -86,12 +82,12 @@ The application will be accessible at `http://127.0.0.1:5000`
 1. Navigate to **Cloud Build** in the [Google Cloud Console](https://console.cloud.google.com/cloud-build)
 2. Create a **new trigger**:
    - Connect GitHub repo
-   - Set the trigger to build on a specific branch (e.g. `main`)
-   - Use the `cloudbuild.yaml` file for build configuration
+   - Set the trigger to build on branch `main`
+   - Use `cloudbuild.yaml` file for build configuration
 
 ### Step 2: Deploy to Cloud Run
 1. Once the build is complete, go to **Cloud Run** in the Google Cloud Console
-2. Deploy the container image created by Cloud Build
+2. Deploy container image created by Cloud Build
 
 ---
 
@@ -123,8 +119,8 @@ steps:
 
 ## Notes
 
-- Update the `project-id` and `region` placeholders in `cloudbuild.yaml` with actual values.
-- The application will be accessible at the URL provided by Google Cloud Run (`https://skin-lesion-classification-[id].run.app`).
+- Update the `project-id` and `region` placeholders in `cloudbuild.yaml` with actual values
+- The application will be accessible at URL provided eg: `https://skin-lesion-classification-[id].run.app`
 
 ---
 
