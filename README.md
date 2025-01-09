@@ -1,35 +1,45 @@
+---
+
 # DermAI Skin Lesion Classification
 
 ## Project Overview
-DermAI is a Flask-based application designed to classify skin lesions using ML models. The application supports two model options: CNN (image-only) and CNN + Metadata (image with metadata).
+DermAI is a Flask-based application designed to classify skin lesions using ML models that supports two model options which are
+**CNN**: which classifies images using CNN
+**CNN + Metadata**: is enhanced classification with metadata like age, sex and anatomical site
 
 ---
 
-## Project Directory Structure
-```
-├── app.py                   # Flask backend logic
+## Important Project Directory
+
+```plaintext
+├── app.py                           # Web UX
 ├── templates/
-│   └── index.html           # Web interface
+│   └── index.html                   # Web UI
 ├── data/
-│   ├── test/                # Directory for test images
-│   ├── test.csv             # Metadata for test images
+│   ├── test/                        # Directory for test images
+│   └── test.csv                     # Metadata for test images
 ├── models/
 │   ├── best_cnn_model_traced.pt            # CNN model
 │   └── best_cnn_metadata_model_traced.pt   # CNN model with metadata
-├── Dockerfile               # Docker configuration file
-├── requirements.txt         # Python dependencies
-└── README.md                # Project documentation
+├── static/
+│   ├── group.png                   
+│   └── styles.css                   
+├── Dockerfile                      
+├── cloudbuild.yaml                  # Google Cloud Build configuration
+├── requirements.txt                 # Python dependencies
+└── README.md                    
 ```
 
 ---
 
 ## Requirements
-- Python 3.8+
-- Flask 2.x
-- PyTorch 2.0+
-- Docker (optional, for containerization)
 
-Dependencies are listed in `requirements.txt`.
+- **Python 3.8+**
+- **Flask 2.x**
+- **PyTorch 2.0+**
+- **Docker** (optional)
+- **Google Cloud Build and Cloud Run** (for deployment)
+- Dependencies listed in `requirements.txt`
 
 ---
 
@@ -37,8 +47,8 @@ Dependencies are listed in `requirements.txt`.
 
 ### Step 1: Clone the Repository
 ```bash
-git clone https://github.com/{repo}/skin-lesion-classification.git
-cd skin-lesion-classification
+git clone https://github.com/sofiahanim/skinlesionclassificationDermAI.git
+cd skinlesionclassificationDermAI
 ```
 
 ### Step 2: Install Dependencies
@@ -50,66 +60,72 @@ pip install -r requirements.txt
 ```bash
 python app.py
 ```
-The application will be accessible at `http://127.0.0.1:5000`.
+The application will be accessible at `http://127.0.0.1:5000`
 
 ---
 
 ## Features
+
 - **Model Options**:
-  - CNN: Basic classification using images only
-  - CNN + Metadata: Enhanced classification with images and additional metadata (age, sex, anatomical site)
+  - **CNN** provide basic classification using images only
+  - **CNN + Metadata** enhanced classification with images and additional metadata such as age, sex, anatomical site
+
 - **Predictions**:
-  - Upload skin lesion images (PNG/JPG/JPEG).
+  - Upload skin lesion images (PNG/JPG/JPEG)
   - Choose the model type and view predictions with confidence scores
+
 - **Test Data Browser**:
   - Search and view test data in a table format
   - Preview and download test images
 
 ---
 
-## Dockerization
+## Deployment to Google Cloud Run via Cloud Build
 
-### Step 1: Build Docker Image
-```bash
-docker build -t skin-lesion-classification .
-```
+### Step 1: Configure Cloud Build in Google Cloud Console
+1. Navigate to **Cloud Build** in the [Google Cloud Console](https://console.cloud.google.com/cloud-build)
+2. Create a **new trigger**:
+   - Connect GitHub repo
+   - Set the trigger to build on a specific branch (e.g. `main`)
+   - Use the `cloudbuild.yaml` file for build configuration
 
-### Step 2: Run Docker Container
-```bash
-docker run -p 5000:5000 skin-lesion-classification
-```
+### Step 2: Deploy to Cloud Run
+1. Once the build is complete, go to **Cloud Run** in the Google Cloud Console
+2. Deploy the container image created by Cloud Build
 
 ---
 
-## Deployment to Google Cloud Run
+## cloudbuild.yaml
 
-### Step 1: Build and Push Docker Image
-```bash
-gcloud builds submit --tag gcr.io/{project-id}/skin-lesion-classification
-```
+```yaml
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/skin-lesion-classification', '.']
 
-### Step 2: Deploy to Cloud Run
-```bash
-gcloud run deploy skin-lesion-classification \
-  --image gcr.io/{project-id}/skin-lesion-classification \
-  --platform managed \
-  --region region \
-  --allow-unauthenticated
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/skin-lesion-classification']
+
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - 'run'
+      - 'deploy'
+      - 'skin-lesion-classification'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/skin-lesion-classification'
+      - '--platform'
+      - 'managed'
+      - '--region'
+      - 'us-central1'
+      - '--allow-unauthenticated'
 ```
 
 ---
 
 ## Notes
-- Update `project-id` and `region` placeholders with actual values when deploying to Google Cloud.
+
+- Update the `project-id` and `region` placeholders in `cloudbuild.yaml` with actual values.
+- The application will be accessible at the URL provided by Google Cloud Run (`https://skin-lesion-classification-[id].run.app`).
+
+
 
 ---
-
-## Acknowledgments
-- **[Flask](https://flask.palletsprojects.com/)**: Web framework.
-- **[PyTorch](https://pytorch.org/)**: Machine learning framework.
-- **[Bootstrap](https://getbootstrap.com/)**: Responsive UI framework.
-- **[Google Cloud Platform](https://cloud.google.com/)**: Deployment infrastructure.
-
----
-
-

@@ -45,6 +45,14 @@ def load_traced_model(model_path, device):
     model.eval()
     return model
 
+@app.route('/group.png')
+def serve_group_image():
+    return send_from_directory('static', 'group.png') 
+
+@app.route('/styles.css')
+def serve_css():
+    return send_from_directory('static', 'styles.css') 
+
 # Function to load models
 def load_all_models():
     global models
@@ -71,7 +79,6 @@ def process_metadata(age, sex, anatom_site):
     ])
     metadata = torch.tensor(metadata_values, dtype=torch.float32)  # Return tensor
     return metadata
-
 
 @app.route('/')
 def index():

@@ -9,17 +9,22 @@
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css">
     <link href="https://stackpath.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css">
-    <style>
-        body {
-            padding: 20px;
-        }
-    </style>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
 </head>
 <body>
-<div class="container">
-    <h1 class="mb-4"><b>Skin Lesion Classification with DermAI</b></h1>
-    <div class="card mb-4">
+<br>
+<div class="container mb-8">
+    <div class="card">
         <div class="card-body">
+            <h1 class="text-center"><b>Skin Lesion Classification with DermAI</b></h1>
+            <img src="{{ url_for('static', filename='group.png') }}" alt="Group 14: Skin Lesion Classification with DermAI" class="img-fluid mb-4 d-block mx-auto">
+        </div>
+    </div>
+
+    <!-- Prediction Form -->
+    <div class="card mt-4">
+        <div class="card-body">
+            <h4 class="mb-4">Upload and Predict</h4>
             <form id="upload-form" action="/upload" method="post" enctype="multipart/form-data">
                 <div class="mb-3">
                     <label for="model_type" class="form-label">Select Model Type:</label>
@@ -30,34 +35,37 @@
                 </div>
                 <div class="mb-3">
                     <label for="file" class="form-label">Upload Skin Lesion Image (PNG/JPEG/JPG ):</label>
-                    <input type="file" id="file" name="file" class="form-control" accept="image/png, image/jpeg" required>                    
+                    <input type="file" id="file" name="file" class="form-control" accept="image/png, image/jpeg" required>
                 </div>
-                <div class="mb-3 metadata-field">
-                    <label for="age" class="form-label">Age:</label>
-                    <input type="number" id="age" name="age" class="form-control" min="0" max="120" value="40" required>
+                <div class="row">
+                    <div class="col-md-4 mb-3 metadata-field">
+                        <label for="age" class="form-label">Age:</label>
+                        <input type="number" id="age" name="age" class="form-control" min="0" max="120" value="40" required>
+                    </div>
+                    <div class="col-md-4 mb-3 metadata-field">
+                        <label for="sex" class="form-label">Sex:</label>
+                        <select id="sex" name="sex" class="form-select" required>
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4 mb-3 metadata-field">
+                        <label for="anatom_site" class="form-label">Anatomical Site:</label>
+                        <select id="anatom_site" name="anatom_site" class="form-select" required>
+                            <option value="torso">Torso</option>
+                            <option value="lower extremity">Lower Extremity</option>
+                            <option value="upper extremity">Upper Extremity</option>
+                            <option value="head/neck">Head/Neck</option>
+                            <option value="palms/soles">Palms/Soles</option>
+                            <option value="oral/genital">Oral/Genital</option>
+                        </select>
+                    </div>
                 </div>
-                <div class="mb-3 metadata-field">
-                    <label for="sex" class="form-label">Sex:</label>
-                    <select id="sex" name="sex" class="form-select" required>
-                        <option value="male">Male</option>
-                        <option value="female">Female</option>
-                    </select>
-                </div>
-                <div class="mb-3 metadata-field">
-                    <label for="anatom_site" class="form-label">Anatomical Site:</label>
-                    <select id="anatom_site" name="anatom_site" class="form-select" required>
-                        <option value="torso">Torso</option>
-                        <option value="lower extremity">Lower Extremity</option>
-                        <option value="upper extremity">Upper Extremity</option>
-                        <option value="head/neck">Head/Neck</option>
-                        <option value="palms/soles">Palms/Soles</option>
-                        <option value="oral/genital">Oral/Genital</option>
-                    </select>
-                </div>                
-                <button type="submit" class="btn btn-dark">Predict</button>
+                <button type="submit" class="btn btn-dark w-100">Predict</button>
             </form>
         </div>
     </div>
+    <br>
     <div id="loadingSpinner" class="text-center d-none">
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
@@ -65,22 +73,39 @@
     </div>
     <div id="prediction-result" class="alert alert-info d-none"></div>
     <hr>
-    <h4 class="mb-4">Sample Test Data</h4>
-    <table id="data-table" class="table table-hover">
-        <thead>
-            <tr>
-                <th>Patient ID</th>
-                <th>Sex</th>
-                <th>Age Approx</th>
-                <th>Anatomical Site</th>
-                <th>Width</th>
-                <th>Height</th>
-                <th>Image Name</th>
-                <th>View</th>
-            </tr>
-        </thead>
-    </table>
+
+    <!-- Sample Test Data -->
+    <div class="card mt-4">
+        <div class="card-body">
+            <h4 class="mb-4">Sample Test Data</h4>
+            <table id="data-table" class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Patient ID</th>
+                        <th>Sex</th>
+                        <th>Age</th>
+                        <th>Anatomical Site</th>
+                        <th>Width</th>
+                        <th>Height</th>
+                        <th>Image</th>
+                        <th>View</th>
+                    </tr>
+                </thead>
+            </table>
+        </div>
+    </div>
 </div>
+
+<footer class="text-center text-white py-3 mt-4">
+    <a href="https://colab.research.google.com/drive/1F08fMfvWsG0dIJkI9oNgnkEq0YYn9Vut?usp=sharing" target="_blank" class="text-white ms-3" style="text-decoration: none;">
+        <i class="fab fa-google"></i> Colab Notebook
+    </a> | 
+    <a href="https://github.com/sofiahanim/skinlesionclassificationDermAI" target="_blank" class="text-white" style="text-decoration: none;">
+        <i class="fab fa-github"></i>  DermAI Skin Lesion Classification
+    </a>
+</footer>
+
+
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
@@ -122,7 +147,7 @@ function viewImage(imageName) {
                         <img src="${imageUrl}" class="img-fluid" alt="${imageName}">
                     </div>
                     <div class="modal-footer">
-                        <a href="${imageUrl}" class="btn btn-dark btn-sm" download>
+                        <a href="${imageUrl}" class="btn btn-sm" download>
                             <i class="fa fa-download"></i> Download
                         </a>
                     </div>
@@ -145,11 +170,11 @@ document.addEventListener('DOMContentLoaded', function() {
         columns: [
             { data: 'patient_id', title: 'Patient ID', orderable: true, searchable: true },
             { data: 'sex', title: 'Sex',  orderable: true, searchable: true },
-            { data: 'age_approx', title: 'Age Approx',  orderable: true, searchable: true },
+            { data: 'age_approx', title: 'Age',  orderable: true, searchable: true },
             { data: 'anatom_site_general_challenge', title: 'Anatomical Site',  orderable: true, searchable: true },
             { data: 'width', title: 'Width',  orderable: true, searchable: true },
             { data: 'height', title: 'Height',  orderable: true, searchable: true },
-            { data: 'image_name', title: 'Image Name',  orderable: true, searchable: true },
+            { data: 'image_name', title: 'Image',  orderable: true, searchable: true },
             { data: 'image_view', title: 'View', orderable: false, searchable: false }
         ]
     });
