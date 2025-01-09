@@ -8,3 +8,5 @@ steps:
   args: ['run', 'deploy', 'dermai', '--image', 'gcr.io/$PROJECT_ID/dermai:$COMMIT_SHA', '--platform', 'managed', '--region', 'us-central1', '--allow-unauthenticated']
 images:
 - 'gcr.io/$PROJECT_ID/dermai:$COMMIT_SHA'
+options:
+  logging: CLOUD_LOGGING_ONLY
