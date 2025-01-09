@@ -1,12 +1,12 @@
 steps:
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'gcr.io/$PROJECT_ID/dermai:$COMMIT_SHA', '.']
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/skinlesionclassificationdermai/skinlesionclassificationdermai:$COMMIT_SHA', '.']
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'gcr.io/$PROJECT_ID/dermai:$COMMIT_SHA']
+  args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/skinlesionclassificationdermai/skinlesionclassificationdermai:$COMMIT_SHA']
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
   entrypoint: 'gcloud'
-  args: ['run', 'deploy', 'dermai', '--image', 'gcr.io/$PROJECT_ID/dermai:$COMMIT_SHA', '--platform', 'managed', '--region', 'us-central1', '--allow-unauthenticated']
+  args: ['run', 'deploy', 'dermai', '--image', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/skinlesionclassificationdermai/skinlesionclassificationdermai:$COMMIT_SHA', '--platform', 'managed', '--region', 'us-central1', '--allow-unauthenticated']
 images:
-- 'gcr.io/$PROJECT_ID/dermai:$COMMIT_SHA'
+- 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/skinlesionclassificationdermai/skinlesionclassificationdermai:$COMMIT_SHA'
 options:
   logging: CLOUD_LOGGING_ONLY
