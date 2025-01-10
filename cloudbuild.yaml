@@ -1,18 +1,26 @@
+options:
+  logging: CLOUD_LOGGING_ONLY
+  substitutionOption: ALLOW_LOOSE
+substitutions:
+  _SERVICE: 'skinlesionclassificationdermai'
+  _REGION: 'us-central1'
+
 steps:
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/skinlesionclassificationdermai/skinlesionclassificationdermai:latest', '.']
+  id: 'Build Docker Image'
+  args: ['build', '-t', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/$_SERVICE/$_SERVICE:latest', '.']
 - name: 'gcr.io/cloud-builders/docker'
-  args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/skinlesionclassificationdermai/skinlesionclassificationdermai:latest']
+  id: 'Push Docker Image to Artifact Registry'
+  args: ['push', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/$_SERVICE/$_SERVICE:latest']
 - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+  id: 'Deploy to Cloud Run'
   entrypoint: 'gcloud'
   args: [
-    'run', 'deploy', 'skinlesionclassificationdermai',
-    '--image', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/skinlesionclassificationdermai/skinlesionclassificationdermai:latest',
+    'run', 'deploy', '$_SERVICE',
+    '--image', 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/$_SERVICE/$_SERVICE:latest',
     '--platform', 'managed',
-    '--region', 'us-central1',
+    '--region', '$_REGION',
     '--allow-unauthenticated'
   ]
 images:
-- 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/skinlesionclassificationdermai/skinlesionclassificationdermai:latest'
-options:
-  logging: CLOUD_LOGGING_ONLY
+- 'us-central1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/$_SERVICE/$_SERVICE:latest'
