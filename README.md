@@ -8,7 +8,7 @@ DermAI is a Flask-based application designed to classify skin lesions using ML m
 ## Important Project Directory
 
 ```plaintext
-├── app.py                           # Web UX
+├── app.py                           # Backend Logic/Model Logic
 ├── templates/
 │   └── index.html                   # Web UI
 ├── data/
