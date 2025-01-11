@@ -113,6 +113,11 @@ def upload():
              with torch.no_grad():
                 output = model(input_image) # pass the image
 
+        # 0 = Benign
+        # 1 = Malignant
+        # softmax compute probability for each class 
+        # eg benign : probabilities = [0.88,0.12] -> non-cancerous
+        # eg malignant : probabilities = [0.12,0.88] -> cancerous
         probabilities = torch.softmax(output, dim=1).cpu().numpy()[0]
         predicted_class_index = np.argmax(probabilities)
         predicted_class = ["Benign", "Malignant"][predicted_class_index]
