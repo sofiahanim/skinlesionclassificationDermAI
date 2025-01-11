@@ -8,7 +8,6 @@ import numpy as np
 from werkzeug.utils import secure_filename
 from io import BytesIO
 
-# Initialize Flask application
 app = Flask(__name__)
 
 # Data paths
@@ -18,7 +17,6 @@ CSV_PATH = os.path.join(DATA_FOLDER, 'test.csv')
 
 app.config['IMAGE_FOLDER'] = IMAGE_FOLDER
 
-# Load data
 data = pd.read_csv(CSV_PATH).fillna('N/A')  # Handle NaN values
 
 # Model paths
@@ -113,18 +111,18 @@ def upload():
                 output = model(input_image, metadata)  # Pass both image and metadata
         else:
              with torch.no_grad():
-                output = model(input_image) # Only pass the image for non-metadata models
+                output = model(input_image) # pass the image
 
         probabilities = torch.softmax(output, dim=1).cpu().numpy()[0]
         predicted_class_index = np.argmax(probabilities)
         predicted_class = ["Benign", "Malignant"][predicted_class_index]
-        confidence = float(probabilities[predicted_class_index])  # Convert to Python float
+        confidence = float(probabilities[predicted_class_index])  
         probabilities_list = probabilities.tolist()
 
         return jsonify({
             'predicted_class': predicted_class,
             'confidence': confidence,
-            'probabilities': probabilities_list,  # Added probabilities
+            'probabilities': probabilities_list, 
             'probabilities_benign': probabilities_list[0],
             'probabilities_malignant': probabilities_list[1]
 
@@ -138,15 +136,14 @@ def browse():
     query = request.args.get('search[value]', '').lower()
     start = int(request.args.get('start', 0))
     length = int(request.args.get('length', 10))
-    column_index = int(request.args.get('order[0][column]', 0))  # Default to the first column
-    sort_direction = request.args.get('order[0][dir]', 'asc')  # Default sorting direction
+    column_index = int(request.args.get('order[0][column]', 0))  
+    sort_direction = request.args.get('order[0][dir]', 'asc')
 
     column_names = ['patient_id', 'sex', 'age_approx', 'anatom_site_general_challenge', 'width', 'height', 'image_name']
-    sort_column = column_names[column_index]  # Ensure this matches the order in your DataTables initialization
+    sort_column = column_names[column_index]  
 
     filtered_data = data[data.apply(lambda row: query in str(row).lower(), axis=1)]
 
-    # Sort the data
     if sort_direction == 'asc':
         filtered_data = filtered_data.sort_values(by=sort_column, ascending=True)
     else:
@@ -169,15 +166,13 @@ def browse():
 
 @app.route('/data/test/<filename>')
 def serve_image(filename):
-    #filename = filename + '.jpg'  # Append the extension to the filename
     secure_path = os.path.join(app.config['IMAGE_FOLDER'], secure_filename(filename))
-    print("Trying to serve:", secure_path)  # This will output the path it's trying to access
+    print("Trying to serve:", secure_path) 
     if not os.path.exists(secure_path):
         return jsonify({'error': 'Image not found'}), 404
     return send_from_directory(app.config['IMAGE_FOLDER'], filename)
 
 if __name__ == '__main__':
-    # Load models before running the app
     load_all_models()
     port = int(os.getenv('PORT', 5000))
     app.run(debug=True, host='0.0.0.0', port=port)
